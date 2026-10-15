@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interview Copilot</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <style>
+    :root {
+      --bg:         #0d0d10;
+      --surface:    #16161e;
+      --surface2:   #1e1e2e;
+      --border:     #2a2a3a;
+      --border-hl:  #7c3aed;
+      --purple:     #7c3aed;
+      --purple-dim: #4c1d95;
+      --text:       #cdd6f4;
+      --text-dim:   #6c7086;
+      --text-faint: #313244;
+      --green:      #a6e3a1;
+      --blue:       #89b4fa;
+      --mauve:      #cba6f7;
+      --red:        #f38ba8;
+      --yellow:     #f9e2af;
+      --code-bg:    #1e1e2e;
+      --code-hdr:   #181825;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Config warning banner ── */
+    #configBanner {
+      display: none;
+      background: #2d1b00;
+      border-bottom: 1px solid #7c4a00;
+      padding: 10px 24px;
+      font-size: 0.82rem;
+      color: var(--yellow);
+      flex-shrink: 0;
+      gap: 10px;
+      align-items: center;
+    }
+    #configBanner.visible { display: flex; }
+    #configBanner button {
+      background: #7c4a00;
+      border: none;
+      border-radius: 5px;
+      color: var(--yellow);
+      padding: 3px 12px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #configBanner button:hover { background: #a06200; }
+
+    /* ── Header ── */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .app-title { font-size: 1rem; font-weight: 600; color: var(--purple); }
+
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+
+    .hotkey-hint {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 8px;
+    }
+
+    #btnSettings, #btnInterview {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      padding: 5px 10px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #btnSettings:hover { color: var(--text); border-color: var(--purple); }
+    #btnInterview { border-color: #7c4a00; color: var(--yellow); }
+    #btnInterview:hover { background: #2d1b00; border-color: var(--yellow); }
+
+    /* ── Main scroll area ── */
+    .main-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    /* ── Input section ── */
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    #manualInput {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.93rem;
+      outline: none;
+      resize: none;
+      min-height: 44px;
+      max-height: 130px;
+      transition: border-color 0.15s;
+    }
+    #manualInput:focus { border-color: var(--purple); }
+    #manualInput::placeholder { color: var(--text-faint); }
+
+    .btn {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn:not(:disabled):active { transform: scale(0.97); }
+    .btn-primary   { background: var(--purple); color: #fff; }
+    .btn-secondary { background: #0f4c81; color: #fff; }
+
+    #status { font-size: 0.78rem; color: var(--text-dim); min-height: 1.2em; }
+    #status.thinking { color: var(--mauve); }
+
+    /* ── Result boxes ── */
+    .result-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .result-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    .result-body { padding: 14px 18px; font-size: 0.93rem; line-height: 1.7; min-height: 48px; }
+    #questionText { color: var(--text-dim); white-space: pre-wrap; }
+    #answer-box { border-color: var(--border-hl); }
+    #answer-box .result-header { border-bottom-color: var(--border-hl); }
+    #answer { color: var(--text); white-space: pre-wrap; }
+
+    /* ── Markdown rendered answer ── */
+    #answer.rendered { white-space: normal; }
+    #answer.rendered p { margin-bottom: 10px; }
+    #answer.rendered p:last-child { margin-bottom: 0; }
+    #answer.rendered ul, #answer.rendered ol { margin: 8px 0 10px 20px; }
+    #answer.rendered li { margin-bottom: 4px; }
+    #answer.rendered h1, #answer.rendered h2, #answer.rendered h3 { color: var(--mauve); margin: 14px 0 6px; font-weight: 600; }
+    #answer.rendered h1 { font-size: 1.1rem; }
+    #answer.rendered h2 { font-size: 1rem; }
+    #answer.rendered h3 { font-size: 0.93rem; }
+    #answer.rendered strong { color: #fff; }
+    #answer.rendered em { color: var(--text-dim); }
+    #answer.rendered a { color: var(--blue); text-decoration: none; }
+    #answer.rendered a:hover { text-decoration: underline; }
+
+    #answer.rendered code:not(pre code) {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      color: var(--mauve);
+    }
+
+    #answer.rendered pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--code-hdr);
+      padding: 6px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-lang { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-dim); }
+
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--purple); }
+    .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+    #answer.rendered pre code {
+      display: block;
+      padding: 14px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.65;
+      overflow-x: auto;
+      background: transparent !important;
+    }
+    .hljs { background: transparent !important; }
+
+    /* ── Type badge ── */
+    #typeBadge {
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 1px;
+      padding: 2px 9px; border-radius: 999px;
+      text-transform: uppercase; display: none;
+    }
+    #typeBadge.coding      { background: #14532d; color: var(--green); }
+    #typeBadge.behavioural { background: #1e3a5f; color: var(--blue); }
+    #typeBadge.ml          { background: var(--purple-dim); color: var(--mauve); }
+    #typeBadge.general     { background: var(--surface2); color: var(--text-dim); }
+
+    #btnCopyAnswer {
+      background: none; border: 1px solid var(--border); border-radius: 5px;
+      color: var(--text-dim); font-size: 0.7rem; padding: 3px 10px;
+      cursor: pointer; font-family: 'Inter', sans-serif; display: none;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #btnCopyAnswer:hover { color: var(--text); border-color: var(--purple); }
+
+    /* ── Settings modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    .modal-backdrop.hidden { display: none; }
+
+    .modal-card {
+      background: var(--surface);
+      border: 1px solid var(--border-hl);
+      border-radius: 12px;
+      padding: 28px 32px;
+      width: 500px;
+      max-width: calc(100vw - 40px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+
+    .modal-card h2 { font-size: 1rem; font-weight: 600; color: var(--mauve); margin-bottom: 20px; }
+
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+
+    .field label {
+      font-size: 0.75rem; color: var(--text-dim); font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+
+    .field input, .field select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field select:focus { border-color: var(--purple); }
+
+    /* Select dropdown arrow */
+    .field select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236c7086' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+      cursor: pointer;
+    }
+    .field select option { background: var(--surface2); }
+
+    /* API key row: input + show/hide button side by side */
+    .key-row { display: flex; gap: 6px; }
+    .key-row input { flex: 1; }
+
+    #btnToggleKey {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      padding: 0 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: 'Inter', sans-serif;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #btnToggleKey:hover { color: var(--text); border-color: var(--purple); }
+
+    /* Key status hint shown when a key is already saved */
+    .key-hint {
+      font-size: 0.72rem;
+      color: var(--green);
+      margin-top: 3px;
+    }
+
+    /* Save feedback message */
+    #saveMsg {
+      font-size: 0.78rem;
+      margin-top: 10px;
+      min-height: 1.2em;
+      text-align: right;
+    }
+    #saveMsg.ok  { color: var(--green); }
+    #saveMsg.err { color: var(--red); }
+
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    .btn-ghost {
+      background: none; border: 1px solid var(--border); border-radius: 7px;
+      color: var(--text-dim); padding: 8px 18px; font-size: 0.88rem;
+      cursor: pointer; transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+
+    .modal-note {
+      font-size: 0.73rem; color: var(--text-dim);
+      margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px;
+    }
+    .modal-note .warn { color: var(--red); }
+    .modal-note .ok   { color: var(--green); }
+  </style>
+</head>
+<body>
+
+  <!-- ── Config warning banner (hidden until startup check fails) ── -->
+  <div id="configBanner">
+    <span>⚠ No API key configured — Claude cannot answer questions yet.</span>
+    <button id="btnBannerSettings">Open Settings</button>
+  </div>
+
+  <!-- ── Header ── -->
+  <header class="app-header">
+    <div class="app-title">Interview Copilot</div>
+    <div class="header-actions">
+      <span class="hotkey-hint" title="Toggle overlay window">Ctrl+Shift+H</span>
+      <span class="hotkey-hint" title="Capture screen">Ctrl+Shift+S</span>
+      <span class="hotkey-hint" title="Hide this window during interview">Ctrl+Shift+M</span>
+      <button id="btnInterview" title="Hide this panel during interview — use Ctrl+Shift+M to bring it back">Interview Mode</button>
+      <button id="btnSettings">⚙ Settings</button>
+    </div>
+  </header>
+
+  <!-- ── Main content ── -->
+  <div class="main-scroll">
+
+    <div>
+      <div class="input-row">
+        <textarea id="manualInput" rows="1" placeholder="Type your interview question and press Enter, or capture your screen…"></textarea>
+        <button class="btn btn-secondary" id="btnCapture">Capture Screen</button>
+        <button class="btn btn-primary"   id="btnAsk">Ask Claude</button>
+      </div>
+      <p id="status" style="margin-top:8px;">Ready</p>
+    </div>
+
+    <div class="result-box">
+      <div class="result-header">
+        <span class="result-label">Question</span>
+      </div>
+      <div class="result-body">
+        <div id="questionText">Your question will appear here…</div>
+      </div>
+    </div>
+
+    <div class="result-box" id="answer-box">
+      <div class="result-header">
+        <span class="result-label">Claude's Answer <span id="typeBadge"></span></span>
+        <button id="btnCopyAnswer">Copy</button>
+      </div>
+      <div class="result-body">
+        <div id="answer">Answer will stream here…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Settings modal ── -->
+  <div id="settingsModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h2>⚙ Settings</h2>
+
+      <div class="field">
+        <label>API Key</label>
+        <div class="key-row">
+          <input id="setApiKey" type="password" placeholder="Leave blank to keep existing key" autocomplete="off" />
+          <button id="btnToggleKey" type="button">Show</button>
+        </div>
+        <div id="keyHint" class="key-hint" style="display:none;">✓ Key already configured — type to replace it</div>
+      </div>
+
+      <div class="field">
+        <label>Base URL</label>
+        <input id="setBaseURL" type="text" placeholder="https://ai-gateway.amalitech.org/v1" />
+      </div>
+
+      <div class="field">
+        <label>Model</label>
+        <select id="setModel">
+          <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+          <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
+          <option value="gpt-4o">gpt-4o</option>
+          <option value="gpt-5-mini">gpt-5-mini</option>
+        </select>
+      </div>
+
+      <p class="modal-note">
+        <span class="warn">Never share your API key.</span>
+        The key is encrypted with OS-level storage (Windows DPAPI / macOS Keychain) and never leaves this machine.
+      </p>
+
+      <div id="saveMsg"></div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" id="btnCancelSettings">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveSettings">Save &amp; Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const btnAsk       = document.getElementById('btnAsk');
+    const btnCapture   = document.getElementById('btnCapture');
+    const statusEl     = document.getElementById('status');
+    const typeBadge    = document.getElementById('typeBadge');
+    const questionEl   = document.getElementById('questionText');
+    const answerEl     = document.getElementById('answer');
+    const copyAnswerBtn = document.getElementById('btnCopyAnswer');
+
+    let rawAnswer = '';
+
+    // ── Startup: check if API key is configured ──
+    (async () => {
+      const { configured } = await window.copilot.checkConfig();
+      if (!configured) {
+        document.getElementById('configBanner').classList.add('visible');
+      }
+    })();
+
+    document.getElementById('btnBannerSettings').addEventListener('click', () => openSettings());
+
+    // ── Auto-grow textarea ──
+    const inputEl = document.getElementById('manualInput');
+    inputEl.addEventListener('input', () => {
+      inputEl.style.height = 'auto';
+      inputEl.style.height = inputEl.scrollHeight + 'px';
+    });
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitQuestion(inputEl.value.trim()); }
+    });
+
+    btnAsk.addEventListener('click', () => submitQuestion(inputEl.value.trim()));
+
+    function submitQuestion(text) {
+      if (!text) return;
+      questionEl.textContent = text;
+      resetAnswer();
+      inputEl.value = '';
+      inputEl.style.height = 'auto';
+      setStatus('Asking Claude…', 'thinking');
+      btnAsk.disabled = true;
+      window.copilot.sendQuestion(text);
+    }
+
+    function resetAnswer() {
+      rawAnswer = '';
+      answerEl.textContent = '';
+      answerEl.className = '';
+      copyAnswerBtn.style.display = 'none';
+      typeBadge.style.display = 'none';
+    }
+
+    // ── Screen capture ──
+    async function doCapture() {
+      btnCapture.disabled = true;
+      btnAsk.disabled     = true;
+      resetAnswer();
+      setStatus('Capturing screen…', 'thinking');
+      const capture = await window.copilot.captureScreen();
+      if (!capture.ok) {
+        setStatus('Capture failed: ' + capture.error, '');
+        btnCapture.disabled = false;
+        btnAsk.disabled     = false;
+        return;
+      }
+      const methodLabel = capture.method === 'gdi' ? ' (GDI fallback)' : '';
+      setStatus(`Analysing with Claude${methodLabel}…`, 'thinking');
+      await window.copilot.answerFromScreenshot(capture.dataUrl);
+    }
+
+    btnCapture.addEventListener('click', doCapture);
+    window.copilot.onHotkeyCapture(() => doCapture());
+
+    // ── IPC callbacks ──
+    window.copilot.onQuestionReceived((text) => {
+      questionEl.textContent = text;
+      typeBadge.style.display = 'none';
+    });
+
+    const TYPE_LABELS = { coding: 'Coding', behavioural: 'Behavioural', ml: 'ML / AI', general: 'General' };
+    window.copilot.onQuestionType((type) => {
+      typeBadge.textContent   = TYPE_LABELS[type] ?? type;
+      typeBadge.className     = type;
+      typeBadge.style.display = 'inline-block';
+    });
+
+    window.copilot.onAnswerChunk((chunk) => {
+      rawAnswer += chunk;
+      answerEl.textContent = rawAnswer;
+    });
+
+    window.copilot.onAnswerDone(() => {
+      setStatus('Done. Ctrl+Shift+H to toggle overlay.', '');
+      btnAsk.disabled     = false;
+      btnCapture.disabled = false;
+      renderAnswer();
+    });
+
+    // ── Render markdown + code highlighting ──
+    function renderAnswer() {
+      if (!rawAnswer.trim()) return;
+      answerEl.innerHTML = marked.parse(rawAnswer);
+      answerEl.classList.add('rendered');
+
+      answerEl.querySelectorAll('pre').forEach(pre => {
+        const code = pre.querySelector('code');
+        if (!code) return;
+        hljs.highlightElement(code);
+
+        const langClass = [...code.classList].find(c => c.startsWith('language-'));
+        const lang = langClass ? langClass.replace('language-', '') : 'code';
+
+        const hdr = document.createElement('div');
+        hdr.className = 'code-header';
+
+        const langSpan = document.createElement('span');
+        langSpan.className = 'code-lang';
+        langSpan.textContent = lang;
+
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.textContent = 'Copy';
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(code.innerText).then(() => {
+            copyBtn.textContent = 'Copied!';
+            copyBtn.classList.add('copied');
+            setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2000);
+          });
+        });
+
+        hdr.appendChild(langSpan);
+        hdr.appendChild(copyBtn);
+        pre.insertBefore(hdr, code);
+      });
+
+      copyAnswerBtn.style.display = 'block';
+    }
+
+    copyAnswerBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(rawAnswer).then(() => {
+        copyAnswerBtn.textContent = 'Copied!';
+        setTimeout(() => { copyAnswerBtn.textContent = 'Copy'; }, 2000);
+      });
+    });
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className   = cls;
+    }
+
+    // ── Settings panel ──
+    async function openSettings() {
+      const cfg = await window.copilot.getConfig();
+
+      document.getElementById('setApiKey').value  = '';   // never pre-fill the key
+      document.getElementById('setBaseURL').value = cfg.baseURL || '';
+
+      const modelSel = document.getElementById('setModel');
+      modelSel.value = cfg.model || 'claude-sonnet-4-6';
+      if (!modelSel.value) modelSel.selectedIndex = 0;  // fallback if model not in list
+
+      // Show hint if a key is already saved
+      document.getElementById('keyHint').style.display = cfg.apiKeySet ? 'block' : 'none';
+
+      document.getElementById('saveMsg').textContent = '';
+      document.getElementById('saveMsg').className   = '';
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    document.getElementById('btnSettings').addEventListener('click', openSettings);
+
+    // Interview Mode — hides this window immediately; use Ctrl+Shift+M to restore
+    document.getElementById('btnInterview').addEventListener('click', async () => {
+      // Show the overlay first so the user still has something to look at
+      if (!overlayWindow) window.copilot.sendQuestion('');  // no-op, just insurance
+      await window.copilot.hideMainWindow();
+    });
+
+    document.getElementById('btnCancelSettings').addEventListener('click', () => {
+      document.getElementById('settingsModal').classList.add('hidden');
+    });
+
+    // Close modal when clicking the dark backdrop
+    document.getElementById('settingsModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+    });
+
+    // Show / hide API key toggle
+    const apiKeyInput = document.getElementById('setApiKey');
+    document.getElementById('btnToggleKey').addEventListener('click', () => {
+      const isHidden = apiKeyInput.type === 'password';
+      apiKeyInput.type = isHidden ? 'text' : 'password';
+      document.getElementById('btnToggleKey').textContent = isHidden ? 'Hide' : 'Show';
+    });
+
+    document.getElementById('btnSaveSettings').addEventListener('click', async () => {
+      const msgEl = document.getElementById('saveMsg');
+      const data = {
+        baseURL: document.getElementById('setBaseURL').value.trim(),
+        model:   document.getElementById('setModel').value,
+        apiKey:  document.getElementById('setApiKey').value.trim(),   // empty = keep existing
+      };
+
+      const result = await window.copilot.saveConfig(data);
+
+      if (result.ok) {
+        msgEl.textContent = '✓ Settings saved — API client updated.';
+        msgEl.className   = 'ok';
+        // Hide the config banner if it was showing
+        document.getElementById('configBanner').classList.remove('visible');
+        setTimeout(() => document.getElementById('settingsModal').classList.add('hidden'), 1200);
+      } else {
+        msgEl.textContent = '✗ Save failed: ' + (result.error || 'unknown error');
+        msgEl.className   = 'err';
+      }
+    });
+  </script>
+</body>
+</html>

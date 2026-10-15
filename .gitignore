@@ -1,0 +1,17 @@
+# ── Secrets & personal data ──────────────────────────────────────────────────
+config.js
+candidate_profile.js
+settings.json
+
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+
+# ── Electron build output ─────────────────────────────────────────────────────
+dist/
+out/
+build/
+
+# ── OS / editor noise ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log

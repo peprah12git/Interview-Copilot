@@ -1,0 +1,21 @@
+{
+  "name": "interview-copilot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^44.7.2"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.134.0",
+    "openai": "^7.34.0"
+  }
+}
