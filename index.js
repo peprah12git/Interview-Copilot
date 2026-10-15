@@ -7,12 +7,22 @@ const fs     = require('fs');
 const { spawn } = require('child_process');
 const OpenAI = require('openai');
 const defaultConfig = require('./config');
-const { classify, PROMPTS } = require('./classifier');
+const { classify, buildPrompts } = require('./classifier');
+const profileService = require('./profile_service');
 
 // Mutable config — can be overridden by saved settings
 let currentConfig = { ...defaultConfig, model: 'claude-sonnet-4-6' };
 let aiClient = null;
 let settingsPath = null;
+
+// Live system prompts, rebuilt from the active profile on startup and whenever
+// the profile changes. This keeps candidate data out of classifier.js and lets
+// a profile save take effect immediately without an app restart.
+let PROMPTS = {};
+
+function rebuildPrompts() {
+  PROMPTS = buildPrompts(profileService.getActiveProfileText());
+}
 
 function initClient() {
   aiClient = new OpenAI({ baseURL: currentConfig.baseURL, apiKey: currentConfig.apiKey });
@@ -20,6 +30,13 @@ function initClient() {
 
 let overlayWindow = null;
 let mainWindow    = null;
+
+// A BrowserWindow stays truthy after it is destroyed, so `if (win)` alone is not
+// enough — accessing win.webContents on a destroyed window throws
+// "Object has been destroyed". This guard checks both conditions.
+function isAlive(win) {
+  return !!win && !win.isDestroyed();
+}
 
 // ── Conversation history ──────────────────────────────────────────────────────
 const MAX_HISTORY = 10;
@@ -38,7 +55,7 @@ async function generateAnswer(question) {
 
   // Classify the question and pick the right system prompt
   const type = classify(question);
-  if (mainWindow) mainWindow.webContents.send('question-type', type);
+  if (isAlive(mainWindow)) mainWindow.webContents.send('question-type', type);
 
   const stream = await aiClient.chat.completions.create({
     model: currentConfig.model,
@@ -50,8 +67,8 @@ async function generateAnswer(question) {
     const token = chunk.choices[0]?.delta?.content ?? '';
     if (!token) continue;
     fullAnswer += token;
-    if (mainWindow)    mainWindow.webContents.send('answer-chunk', token);
-    if (overlayWindow) overlayWindow.webContents.send('answer-chunk', token);
+    if (isAlive(mainWindow))    mainWindow.webContents.send('answer-chunk', token);
+    if (isAlive(overlayWindow)) overlayWindow.webContents.send('answer-chunk', token);
   }
 
   addToHistory('assistant', fullAnswer);
@@ -61,18 +78,18 @@ async function generateAnswer(question) {
 // ── Shared pipeline: question → Claude ───────────────────────────────────────
 async function handleQuestion(question) {
   if (!question?.trim()) return;
-  if (mainWindow)    mainWindow.webContents.send('question-received', question);
-  if (overlayWindow) overlayWindow.webContents.send('question-received', question);
+  if (isAlive(mainWindow))    mainWindow.webContents.send('question-received', question);
+  if (isAlive(overlayWindow)) overlayWindow.webContents.send('question-received', question);
 
   try {
     await generateAnswer(question);
-    if (mainWindow)    mainWindow.webContents.send('answer-done');
-    if (overlayWindow) overlayWindow.webContents.send('answer-done');
+    if (isAlive(mainWindow))    mainWindow.webContents.send('answer-done');
+    if (isAlive(overlayWindow)) overlayWindow.webContents.send('answer-done');
   } catch (err) {
     const msg = `Answer failed: ${err.message}`;
     console.error(msg);
     [mainWindow, overlayWindow].forEach(w => {
-      if (w) { w.webContents.send('answer-chunk', msg); w.webContents.send('answer-done'); }
+      if (isAlive(w)) { w.webContents.send('answer-chunk', msg); w.webContents.send('answer-done'); }
     });
   }
 }
@@ -140,9 +157,9 @@ function captureWithGDI() {
 ipcMain.handle('capture-screen', async () => {
   // Only hide — and later restore — if the window was visible to begin with.
   // If the user already hid the main window for interview mode, leave it hidden.
-  const wasVisible = mainWindow?.isVisible() ?? false;
+  const wasVisible = isAlive(mainWindow) ? mainWindow.isVisible() : false;
   try {
-    if (wasVisible) mainWindow.hide();
+    if (wasVisible && isAlive(mainWindow)) mainWindow.hide();
     await new Promise(r => setTimeout(r, 350));  // let OS redraw without our window
 
     let dataUrl = null;
@@ -177,11 +194,11 @@ ipcMain.handle('capture-screen', async () => {
       }
     }
 
-    if (wasVisible) mainWindow.show();
+    if (wasVisible && isAlive(mainWindow)) mainWindow.show();
     if (!dataUrl) return { ok: false, error: 'All capture methods failed. The active window may use system-level display protection.' };
     return { ok: true, dataUrl, method };
   } catch (err) {
-    if (wasVisible && mainWindow) mainWindow.show();
+    if (wasVisible && isAlive(mainWindow)) mainWindow.show();
     return { ok: false, error: err.message };
   }
 });
@@ -189,18 +206,18 @@ ipcMain.handle('capture-screen', async () => {
 // ── IPC: send screenshot to Claude for vision analysis + answer ───────────────
 ipcMain.handle('answer-from-screenshot', async (_e, dataUrl) => {
   const label = '[Screen capture]';
-  if (mainWindow)    mainWindow.webContents.send('question-received', label);
-  if (overlayWindow) overlayWindow.webContents.send('question-received', label);
+  if (isAlive(mainWindow))    mainWindow.webContents.send('question-received', label);
+  if (isAlive(overlayWindow)) overlayWindow.webContents.send('question-received', label);
 
   try {
     await generateAnswerFromImage(dataUrl);
-    if (mainWindow)    mainWindow.webContents.send('answer-done');
-    if (overlayWindow) overlayWindow.webContents.send('answer-done');
+    if (isAlive(mainWindow))    mainWindow.webContents.send('answer-done');
+    if (isAlive(overlayWindow)) overlayWindow.webContents.send('answer-done');
   } catch (err) {
     console.error('Vision error:', err.message);
     const msg = `Vision failed: ${err.message}`;
     [mainWindow, overlayWindow].forEach(w => {
-      if (w) { w.webContents.send('answer-chunk', msg); w.webContents.send('answer-done'); }
+      if (isAlive(w)) { w.webContents.send('answer-chunk', msg); w.webContents.send('answer-done'); }
     });
   }
 });
@@ -233,8 +250,8 @@ async function generateAnswerFromImage(dataUrl) {
     const token = chunk.choices[0]?.delta?.content ?? '';
     if (!token) continue;
     fullAnswer += token;
-    if (mainWindow)    mainWindow.webContents.send('answer-chunk', token);
-    if (overlayWindow) overlayWindow.webContents.send('answer-chunk', token);
+    if (isAlive(mainWindow))    mainWindow.webContents.send('answer-chunk', token);
+    if (isAlive(overlayWindow)) overlayWindow.webContents.send('answer-chunk', token);
   }
 
   // Store a text-only summary in history so follow-up questions have context
@@ -290,7 +307,7 @@ ipcMain.handle('check-config', () => ({
 // Hides the main window so interview proctoring (Micro1, HireVue, etc.) can't
 // see the Copilot control panel. Ctrl+Shift+S and overlay still work normally.
 ipcMain.handle('hide-main-window', () => {
-  if (mainWindow) mainWindow.hide();
+  if (isAlive(mainWindow)) mainWindow.hide();
 });
 
 ipcMain.handle('save-config', (_e, data) => {
@@ -306,6 +323,60 @@ ipcMain.handle('save-config', (_e, data) => {
   }
 });
 
+// ── IPC: CV profile ───────────────────────────────────────────────────────────
+// All profile filesystem + encryption work lives in the profile service (main
+// process). The renderer only ever receives/sends structured, non-secret data.
+
+// Returns the structured profile for the settings form plus status flags.
+ipcMain.handle('get-profile', () => ({
+  profile: profileService.getProfileForForm(),
+  status:  profileService.getStatus(),
+}));
+
+// Returns the candidate-profile text block that will be injected into the
+// system prompt — either the formatted saved profile, or the fallback.
+// Used by the settings "system prompt preview" panel.
+ipcMain.handle('get-profile-preview', (_e, draft) => {
+  // If the renderer passes an unsaved draft, preview that exact formatting;
+  // otherwise show the currently active profile text.
+  if (draft && typeof draft === 'object') {
+    const normalised = profileService.normaliseProfile(draft);
+    const hasContent = profileService.PROFILE_FIELDS.some(
+      (k) => normalised[k] && normalised[k].length > 0
+    );
+    const text = hasContent
+      ? profileService.formatProfileForPrompt(normalised)
+      : profileService.getActiveProfileText(); // empty draft → show active/fallback
+    return { text, hasCustomProfile: profileService.hasCustomProfile() };
+  }
+  return {
+    text: profileService.getActiveProfileText(),
+    hasCustomProfile: profileService.hasCustomProfile(),
+  };
+});
+
+// Save a user profile. On success, rebuild prompts so subsequent answers use it.
+ipcMain.handle('save-profile', (_e, data) => {
+  // Basic IPC input validation — must be a plain object.
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { ok: false, error: 'Invalid profile data.' };
+  }
+  const result = profileService.save(data);
+  if (result.ok) {
+    rebuildPrompts();
+  }
+  return result;
+});
+
+// Clear the custom profile and revert to the bundled fallback.
+ipcMain.handle('clear-profile', () => {
+  const result = profileService.clear();
+  if (result.ok) {
+    rebuildPrompts();
+  }
+  return result;
+});
+
 // ── Windows ───────────────────────────────────────────────────────────────────
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -313,6 +384,10 @@ function createMainWindow() {
     webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') },
   });
   mainWindow.loadFile('index.html');
+
+  // Drop our reference once the window is gone so later code can't touch a
+  // destroyed object.
+  mainWindow.on('closed', () => { mainWindow = null; });
 }
 
 function createOverlayWindow() {
@@ -338,32 +413,52 @@ function createOverlayWindow() {
   // proctoring) while keeping it visible on the user's physical monitor.
   overlayWindow.setContentProtection(true);
 
-  overlayWindow.on('close', e => { e.preventDefault(); overlayWindow.hide(); });
+  // Intercept user-initiated closes and just hide instead — but only while the
+  // window is still alive (during real teardown it may already be destroyed).
+  overlayWindow.on('close', e => {
+    if (isAlive(overlayWindow)) { e.preventDefault(); overlayWindow.hide(); }
+  });
+
+  // If it is ever truly destroyed (e.g. on app quit), drop our reference.
+  overlayWindow.on('closed', () => { overlayWindow = null; });
 }
 
 app.whenReady().then(() => {
   settingsPath = path.join(app.getPath('userData'), 'settings.json');
   loadSavedSettings();
   initClient();
+
+  // Initialise the profile service (loads user_profile.json if present, else
+  // falls back to candidate_profile.js) and build the live system prompts.
+  const profileLoad = profileService.init({
+    userDataPath: app.getPath('userData'),
+    safeStorage,
+  });
+  if (profileLoad.status === 'corrupt' || profileLoad.status === 'undecryptable') {
+    // Never log profile contents; just note that recovery may be needed.
+    console.warn('[profile] load issue:', profileLoad.status);
+  }
+  rebuildPrompts();
+
   createMainWindow();
   createOverlayWindow();
 
   // Toggle overlay (invisible to screen sharing)
   globalShortcut.register('Ctrl+Shift+H', () => {
-    if (!overlayWindow) return;
+    if (!isAlive(overlayWindow)) return;
     overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
   });
 
   // Capture screen from anywhere — works even when main window is hidden
   globalShortcut.register('Ctrl+Shift+S', async () => {
-    if (mainWindow) mainWindow.webContents.send('hotkey-capture');
+    if (isAlive(mainWindow)) mainWindow.webContents.send('hotkey-capture');
   });
 
   // Toggle main window visibility — use this before starting an interview
   // so the Copilot control panel is hidden from Micro1/HireVue proctoring.
   // Ctrl+Shift+S and Ctrl+Shift+H continue to work while main window is hidden.
   globalShortcut.register('Ctrl+Shift+M', () => {
-    if (!mainWindow) return;
+    if (!isAlive(mainWindow)) return;
     if (mainWindow.isVisible()) {
       mainWindow.hide();
     } else {

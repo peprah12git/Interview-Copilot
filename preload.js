@@ -15,6 +15,12 @@ contextBridge.exposeInMainWorld('copilot', {
   getConfig:      ()     => ipcRenderer.invoke('get-config'),
   saveConfig:     (data) => ipcRenderer.invoke('save-config', data),
 
+  // CV Profile
+  getProfile:        ()      => ipcRenderer.invoke('get-profile'),
+  getProfilePreview: (draft) => ipcRenderer.invoke('get-profile-preview', draft),
+  saveProfile:       (data)  => ipcRenderer.invoke('save-profile', data),
+  clearProfile:      ()      => ipcRenderer.invoke('clear-profile'),
+
   // Interview mode — hides the main window so proctoring can't see it
   hideMainWindow: ()     => ipcRenderer.invoke('hide-main-window'),
 
