@@ -72,15 +72,35 @@ Interview Copilot is intended for **practice and conversational interviews only*
 
 ---
 
-## Development
+## Set up from source (cloning on a new machine)
 
-```bash
-git clone https://github.com/peprah12git/interview-copilot.git
-cd interview-copilot
+Use this if you cloned the repository instead of using the installer. Two files the app needs, `config.js` and `candidate_profile.js`, are **not in the repository** because they hold secrets and personal data. You must create them, or the app will not start.
+
+### 1. Prerequisites
+
+- Windows 10 or later (64-bit)
+- [Node.js](https://nodejs.org/) 18 or later (this includes `npm`)
+- [Git](https://git-scm.com/)
+
+Check them with `node --version`, `npm --version` and `git --version`.
+
+### 2. Clone and install
+
+```powershell
+git clone https://github.com/peprah12git/Interview-Copilot.git
+cd Interview-Copilot
 npm install
 ```
 
-Create `config.js` in the project root. It is gitignored, so never commit it:
+If the feature branch has not been merged into `main` yet, switch to it before installing:
+
+```powershell
+git checkout feature/cv-profile
+```
+
+### 3. Create `config.js`
+
+In the project root, create `config.js` with your AI gateway details. It is gitignored, so it will never be committed.
 
 ```js
 module.exports = {
@@ -89,7 +109,11 @@ module.exports = {
 };
 ```
 
-Create `candidate_profile.js` exporting a default profile string. It is also gitignored. It is used only until you save a CV Profile in Settings.
+The gateway must accept OpenAI-style `/v1/chat/completions` requests. You can also leave `apiKey` empty (`apiKey: ''`) and enter the key later in **Settings > API & Model**, where it is stored encrypted.
+
+### 4. Create `candidate_profile.js`
+
+This is the default profile used until you save your own CV in **Settings > CV Profile**. A minimal version is enough:
 
 ```js
 module.exports = `
@@ -98,9 +122,48 @@ Name: Your Name
 `;
 ```
 
-```bash
+### 5. Run it
+
+```powershell
+npm start
+```
+
+Then open **Settings** and fill in your **CV Profile**. If the API key banner appears at the top, open **Settings > API & Model** and add your key.
+
+### 6. Check everything works
+
+```powershell
+npm test
+```
+
+Both test files should report no failures. They do not need an API key or network access.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `Cannot find module './config'` | You have not created `config.js` (step 3). |
+| `Cannot find module './candidate_profile'` | You have not created `candidate_profile.js` (step 4). |
+| Banner says no API key is configured | Add the key in **Settings > API & Model**. |
+| Answers fail with an authentication error | The key or base URL is wrong. Re-enter them in Settings. |
+| "Encryption unavailable" when saving a profile | Windows could not provide secure storage for your user account. Sign in as a normal Windows user and try again. |
+| Two copies of the app open | An earlier run is still alive. End the `electron.exe` processes in Task Manager and start again. |
+
+Your saved API key and CV profile live in `%APPDATA%\interview-copilot` on that machine. They are encrypted for the Windows user who saved them, so they do not carry over to another machine or account. You will need to re-enter them there.
+
+### Building the installer yourself
+
+```powershell
+npm run build:win
+```
+
+The installer is written to `dist\`. **Warning:** the build packages your local `config.js` and `candidate_profile.js` into the app, so an installer you build contains your API key and personal details. Do not share or publish it.
+
+### Scripts
+
+```powershell
 npm start          # run the app
-npm test           # run the profile service tests
+npm test           # run the profile service and classifier tests
 npm run build:win  # build the Windows installer into dist/
 ```
 
