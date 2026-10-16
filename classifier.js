@@ -1,15 +1,133 @@
-const candidateProfile = require('./candidate_profile');
+// NOTE: The candidate profile is NO LONGER hard-wired here. It is supplied
+// dynamically at prompt-build time by the profile service (see buildPrompts in
+// index.js), so answers always reflect the user's currently saved CV. The
+// confidential interview-answering instructions below are kept separate from
+// candidate data, as required.
 
-// Prepended to every system prompt so Claude always answers as Emmanuel.
+// Prepended to every system prompt so the model always answers as the candidate.
+// Written generically (no hardcoded name/employer) so it works for any profile.
 const BASE_INSTRUCTION =
   'You are a real-time interview assistant for the candidate described above. ' +
-  'When answering interview questions, always reference their actual projects, skills, and experience. ' +
-  'For behavioural questions use specific examples from their work at AmaliTech or Code Coast. ' +
-  'For coding questions use languages they know (Java, Python, JavaScript). ' +
-  'Never mention you are an AI. Speak in first person as Emmanuel.';
+  'When answering interview questions, reference ONLY the candidate\'s actual ' +
+  'projects, skills, education, certifications, and experience as given in the ' +
+  'CANDIDATE PROFILE above. ' +
+  'Do NOT invent, assume, or exaggerate any employer, role, project, qualification, ' +
+  'certification, or technical skill that is not present in the profile. ' +
+  'If the profile does not contain enough information to answer a question honestly, ' +
+  'do not fabricate personal experience — instead give an honest answer and, where ' +
+  'useful, clearly label a block as "Suggested response:" that the candidate can adapt. ' +
+  'Never mention you are an AI. Speak in the first person as the candidate.';
 
-function withProfile(...lines) {
-  return [candidateProfile, BASE_INSTRUCTION, ...lines].join('\n\n');
+// Builds a single system prompt string: [profile text] + [base instruction] +
+// [per-type instruction lines]. `profileText` is injected ONCE here, so callers
+// must NOT also embed the profile in their lines (avoids duplication).
+function withProfile(profileText, ...lines) {
+  return [profileText, BASE_INSTRUCTION, ...lines].join('\n\n');
+}
+
+// Per-type instruction lines, kept free of any candidate-specific references so
+// they remain correct for every user's profile. These are combined with the
+// live profile text by buildPrompts().
+const PROMPT_INSTRUCTIONS = {
+  coding: [
+    'For this coding question:',
+    '1. Briefly explain your approach before writing code.',
+    '2. Write clean, working code using a language from the candidate\'s skill set — whichever fits best.',
+    '3. State the time and space complexity.',
+    '4. Mention any important edge cases, drawing on the candidate\'s real projects where relevant.',
+  ],
+
+  behavioural: [
+    'CRITICAL: This is a live interview. The candidate reads and speaks the answer at the same time.',
+    'Rules that must never be broken:',
+    '- Every answer must be readable in under 60 seconds.',
+    '- No long paragraphs. Short, punchy sentences only.',
+    '- Maximum 5-6 bullet points per answer, each one line long.',
+    '- Use simple present or past tense. No filler phrases.',
+    '',
+    'For "tell me about yourself" or "introduce yourself", use EXACTLY this 5-bullet structure:',
+    '• Who I am and current role',
+    '• Where I studied',
+    '• One key project I built (name it, state what it does in one line)',
+    '• My core technical strengths (list 4-5 technologies)',
+    '• What I am looking for next',
+    '',
+    'Base every bullet strictly on the CANDIDATE PROFILE above. If a detail is not in',
+    'the profile, omit that bullet rather than inventing content.',
+    '',
+    'For all other behavioural questions, use the STAR format but compressed:',
+    '• Situation: one line',
+    '• Task: one line',
+    '• Action: two lines max — what you actually did, referencing the candidate\'s real projects/employers',
+    '• Result: one line with a concrete outcome',
+    '',
+    'Always draw ONLY from the real experience listed in the profile. If the profile',
+    'lacks a relevant example, say so honestly and offer a clearly labelled',
+    '"Suggested response:" the candidate can adapt — never fabricate experience.',
+  ],
+
+  qa: [
+    'CRITICAL: This is a live interview. The candidate reads and speaks the answer at the same time.',
+    'This is a Quality Assurance question. It may cover software testing, AI/ML output validation,',
+    'data annotation and labelling, model evaluation, test documentation, or working with cross-functional teams.',
+    'Rules:',
+    '- Readable in under 60 seconds. Short, punchy bullets, 5-6 maximum.',
+    '- Be concrete and practical: name the method, the steps, and what you would record or report.',
+    '',
+    'Match the answer to the question:',
+    '• Designing/executing test cases for AI outputs: state the requirement being validated, the input,',
+    '  the expected result, pass/fail criteria, and edge cases (ambiguous prompts, adversarial input,',
+    '  bias, hallucination, inconsistency across repeated runs).',
+    '• Data annotation/labelling: cover clear guidelines, consistency, inter-annotator agreement,',
+    '  handling ambiguous items, spot-check reviews, and how label quality affects model accuracy.',
+    '• Evaluating model predictions: cover sampling, error categorisation, patterns and root causes,',
+    '  and metrics such as precision, recall and accuracy where relevant.',
+    '• Test methodology: cover test strategy, regression, exploratory and boundary testing, and how',
+    '  testing for non-deterministic AI differs from testing deterministic software.',
+    '• Documentation/reporting: cover what you log (test case ID, input, expected vs actual, severity,',
+    '  evidence), keeping records organised, and giving actionable recommendations.',
+    '• Collaboration: cover raising questions early, clarifying requirements, and communicating findings',
+    '  clearly to engineers, product owners and other teams.',
+    '',
+    'Where the profile shows relevant testing, QA or data experience, reference it. If it does not,',
+    'answer from sound practice and clearly label any example as "Suggested response:" — never',
+    'present invented experience as the candidate\'s own.',
+  ],
+
+  ml: [
+    'For this ML/AI question:',
+    '1. Give a clear, jargon-free explanation of the concept.',
+    '2. Provide a concrete real-world example, ideally connecting it to the candidate\'s actual experience when the profile supports it.',
+    '3. Mention key trade-offs or limitations if relevant.',
+  ],
+
+  general: [
+    'Give a clear, confident, well-structured answer.',
+    'Where possible, ground your answer in the candidate\'s actual experience from the profile above.',
+    'Be concise but complete. Use bullet points for multi-part answers.',
+  ],
+
+  // Used for screen captures — the model adapts its own response style.
+  screen: [
+    'Look at this screenshot and identify the interview question or problem.',
+    'First state the question in one sentence, then answer it fully as the candidate.',
+    'If it is a coding problem: give approach, code (in a language from the profile), and complexity.',
+    'If it is behavioural: use STAR format with real examples from the candidate\'s profile.',
+    'If it is ML/AI: explain clearly with a real-world example.',
+    'If it is Quality Assurance (test cases, AI output validation, data annotation, model evaluation, test documentation): give a concrete, structured answer covering method, steps, and what you would record.',
+    'Never invent experience that is not in the profile.',
+  ],
+};
+
+// Build the full PROMPTS map for a given live profile text. Called on startup
+// and again whenever the active profile changes, so prompts always reflect the
+// current CV without an app restart.
+function buildPrompts(profileText) {
+  const prompts = {};
+  for (const [type, lines] of Object.entries(PROMPT_INSTRUCTIONS)) {
+    prompts[type] = withProfile(profileText, ...lines);
+  }
+  return prompts;
 }
 
 const CODING_KEYWORDS = [
@@ -46,68 +164,25 @@ const BEHAVIOURAL_KEYWORDS = [
   'mistake', 'improve yourself', 'work under pressure', 'prioritize',
 ];
 
-const PROMPTS = {
-  coding: withProfile(
-    'For this coding question:',
-    '1. Briefly explain your approach before writing code.',
-    '2. Write clean, working code using Java, Python, or JavaScript — whichever fits best.',
-    '3. State the time and space complexity.',
-    '4. Mention any important edge cases, drawing on your experience with GasUp or Smart Commerce where relevant.',
-  ),
-
-  behavioural: withProfile(
-    'CRITICAL: This is a live interview. The candidate reads and speaks the answer at the same time.',
-    'Rules that must never be broken:',
-    '- Every answer must be readable in under 60 seconds.',
-    '- No long paragraphs. Short, punchy sentences only.',
-    '- Maximum 5-6 bullet points per answer, each one line long.',
-    '- Use simple present or past tense. No filler phrases.',
-    '',
-    'For "tell me about yourself" or "introduce yourself", use EXACTLY this 5-bullet structure:',
-    '• Who I am and current role',
-    '• Where I studied',
-    '• One key project I built (name it, state what it does in one line)',
-    '• My core technical strengths (list 4-5 technologies)',
-    '• What I am looking for next',
-    '',
-    'Example of the correct format for "tell me about yourself":',
-    '• Backend Engineer at AmaliTech Ghana, building production-grade Java/Spring Boot systems',
-    '• BSc Computer Science, University of Cape Coast, Class of 2025',
-    '• Built GasUp — a gas delivery platform with 50+ REST endpoints, geofencing, and real-time rider tracking',
-    '• Strong in Java, Spring Boot, PostgreSQL, AWS, and Docker',
-    '• Looking to grow in backend and cloud engineering at scale',
-    '',
-    'For all other behavioural questions, use the STAR format but compressed:',
-    '• Situation: one line',
-    '• Task: one line',
-    '• Action: two lines max — what you actually did, referencing real projects at AmaliTech or Code Coast',
-    '• Result: one line with a concrete outcome',
-    '',
-    'Always draw from real experience: AmaliTech Ghana, Code Coast, GasUp, Smart Commerce, or the AWS portfolio.',
-  ),
-
-  ml: withProfile(
-    'For this ML/AI question:',
-    '1. Give a clear, jargon-free explanation of the concept.',
-    '2. Provide a concrete real-world example, ideally connecting it to your AWS or backend experience.',
-    '3. Mention key trade-offs or limitations if relevant.',
-  ),
-
-  general: withProfile(
-    'Give a clear, confident, well-structured answer.',
-    'Where possible, ground your answer in your actual experience — your Spring Boot projects, AWS work, or time at AmaliTech/Code Coast.',
-    'Be concise but complete. Use bullet points for multi-part answers.',
-  ),
-
-  // Used for screen captures — Claude adapts its own response style
-  screen: withProfile(
-    'Look at this screenshot and identify the interview question or problem.',
-    'First state the question in one sentence, then answer it fully as Emmanuel.',
-    'If it is a coding problem: give approach, code (Java/Python/JS), and complexity.',
-    'If it is behavioural: use STAR format with real examples from his work history.',
-    'If it is ML/AI: explain clearly with a real-world example.',
-  ),
-};
+// Quality Assurance: classic software QA plus AI/ML output validation, data
+// annotation and model evaluation. Phrases are kept specific so that generic
+// ML words (e.g. "model", "regression") alone do not pull questions into QA.
+const QA_KEYWORDS = [
+  'quality assurance', 'qa engineer', 'qa tester', 'qa team', 'qa process', 'quality engineer',
+  'test case', 'test cases', 'test scenario', 'test plan', 'test strategy', 'test suite',
+  'test data', 'test coverage', 'test automation', 'automated test', 'automation test',
+  'testing', 'tester', 'regression testing', 'smoke test', 'sanity test', 'unit test',
+  'integration test', 'end-to-end test', 'e2e', 'acceptance test', 'uat', 'exploratory test',
+  'manual test', 'boundary value', 'equivalence partition', 'black box', 'white box',
+  'bug report', 'defect', 'severity', 'bug life cycle', 'stlc', 'traceability',
+  'selenium', 'cypress', 'playwright', 'postman', 'jmeter', 'flaky',
+  'validate ai', 'validate the output', 'ai output', 'model output', 'model prediction',
+  'evaluate model', 'evaluating model', 'evaluate the model', 'hallucination',
+  'annotate', 'annotation', 'annotator', 'labelling', 'labeling', 'label data',
+  'data set', 'dataset', 'data quality', 'ground truth', 'inter-annotator',
+  'evaluation criteria', 'edge case', 'inconsisten', 'against requirements',
+  'defined requirements', 'testing methodolog', 'test result', 'documentation',
+];
 
 function classify(text) {
   const lower = text.toLowerCase();
@@ -115,7 +190,9 @@ function classify(text) {
   const score = (keywords) =>
     keywords.reduce((n, kw) => n + (lower.includes(kw) ? 1 : 0), 0);
 
+  // qa is listed first so that exact ties go to QA (its phrases are specific).
   const scores = {
+    qa:          score(QA_KEYWORDS),
     coding:      score(CODING_KEYWORDS),
     ml:          score(ML_KEYWORDS),
     behavioural: score(BEHAVIOURAL_KEYWORDS),
@@ -125,4 +202,4 @@ function classify(text) {
   return best[1] > 0 ? best[0] : 'general';
 }
 
-module.exports = { classify, PROMPTS };
+module.exports = { classify, buildPrompts, BASE_INSTRUCTION, PROMPT_INSTRUCTIONS };

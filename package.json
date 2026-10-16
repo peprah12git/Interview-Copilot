@@ -1,3 +1,4 @@
+
 {
   "name": "interview-copilot",
   "version": "1.0.0",
@@ -5,14 +6,48 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test/profile_service.test.js && node test/classifier.test.js",
+    "build:win": "electron-builder --win"
   },
+ "build": {
+  "appId": "com.interview.copilot",
+  "productName": "Interview Copilot",
+  "asar": true,
+  "files": [
+    "index.js",
+    "index.html",
+    "overlay.html",
+    "ai_client.js",
+    "classifier.js",
+    "candidate_profile.js",
+    "profile_service.js",
+    "config.js",
+    "preload.js",
+    "assets/**/*",
+    "node_modules/**/*"
+  ],
+  "buildDependenciesFromSource": false,
+  "directories": {
+    "output": "dist"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "assets/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  }
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "electron": "^44.7.2"
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.134.0",

@@ -268,6 +268,7 @@
     #typeBadge.coding      { background: #14532d; color: var(--green); }
     #typeBadge.behavioural { background: #1e3a5f; color: var(--blue); }
     #typeBadge.ml          { background: var(--purple-dim); color: var(--mauve); }
+    #typeBadge.qa          { background: #5c3d00; color: var(--yellow); }
     #typeBadge.general     { background: var(--surface2); color: var(--text-dim); }
 
     #btnCopyAnswer {
@@ -292,12 +293,126 @@
       border: 1px solid var(--border-hl);
       border-radius: 12px;
       padding: 28px 32px;
-      width: 500px;
+      width: 560px;
       max-width: calc(100vw - 40px);
+      max-height: calc(100vh - 48px);
+      display: flex;
+      flex-direction: column;
       box-shadow: 0 20px 60px rgba(0,0,0,0.6);
     }
 
-    .modal-card h2 { font-size: 1rem; font-weight: 600; color: var(--mauve); margin-bottom: 20px; }
+    .modal-card h2 { font-size: 1rem; font-weight: 600; color: var(--mauve); margin-bottom: 16px; flex-shrink: 0; }
+
+    /* ── Settings tabs ── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 18px;
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--mauve); border-bottom-color: var(--purple); }
+
+    .tab-panel { display: none; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    .tab-panel.active { display: block; }
+
+    /* ── Onboarding hint on the CV Profile tab ── */
+    .onboard-hint {
+      display: none;
+      background: var(--purple-dim);
+      border: 1px solid var(--purple);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: var(--mauve);
+      margin-bottom: 16px;
+    }
+    .onboard-hint.visible { display: block; }
+
+    /* Textareas inside profile form */
+    .field textarea {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      outline: none;
+      resize: vertical;
+      min-height: 64px;
+      transition: border-color 0.15s;
+    }
+    .field textarea:focus { border-color: var(--purple); }
+    .field input[type="text"] { font-family: 'Inter', sans-serif; }
+
+    /* Two-column row for compact fields */
+    .field-row { display: flex; gap: 10px; }
+    .field-row .field { flex: 1; }
+
+    /* ── System prompt preview ── */
+    .preview-section { margin-top: 6px; }
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .preview-title {
+      font-size: 0.72rem; color: var(--text-dim); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .preview-badge {
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px;
+      padding: 2px 8px; border-radius: 999px; text-transform: uppercase;
+    }
+    .preview-badge.custom   { background: #14532d; color: var(--green); }
+    .preview-badge.fallback { background: var(--surface2); color: var(--text-dim); }
+    .preview-badge.unsaved  { background: #2d1b00; color: var(--yellow); }
+    #profilePreview {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.76rem;
+      line-height: 1.6;
+      color: var(--text);
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    #profileMsg {
+      font-size: 0.78rem;
+      margin-top: 10px;
+      min-height: 1.2em;
+      text-align: right;
+    }
+    #profileMsg.ok  { color: var(--green); }
+    #profileMsg.err { color: var(--red); }
+    .btn-danger {
+      background: none; border: 1px solid #5c1a2a; border-radius: 7px;
+      color: var(--red); padding: 8px 18px; font-size: 0.88rem;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-danger:hover { background: #2a0f16; border-color: var(--red); }
 
     .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
 
@@ -441,40 +556,124 @@
     <div class="modal-card">
       <h2>⚙ Settings</h2>
 
-      <div class="field">
-        <label>API Key</label>
-        <div class="key-row">
-          <input id="setApiKey" type="password" placeholder="Leave blank to keep existing key" autocomplete="off" />
-          <button id="btnToggleKey" type="button">Show</button>
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <button class="tab-btn" id="tabBtnProfile" data-tab="profile">CV Profile</button>
+        <button class="tab-btn" id="tabBtnApi"     data-tab="api">API &amp; Model</button>
+      </div>
+
+      <!-- ── CV Profile tab ── -->
+      <div class="tab-panel" id="tabProfile">
+        <div id="onboardHint" class="onboard-hint">
+          Set up your profile so Interview Copilot can answer questions as you
         </div>
-        <div id="keyHint" class="key-hint" style="display:none;">✓ Key already configured — type to replace it</div>
+
+        <div class="field">
+          <label>Full Name</label>
+          <input id="pfFullName" type="text" placeholder="e.g. Ada Lovelace" />
+        </div>
+
+        <div class="field">
+          <label>Current Role and Company</label>
+          <input id="pfCurrentRole" type="text" placeholder="e.g. Backend Engineer at Acme Corp (2024 - Present)" />
+        </div>
+
+        <div class="field">
+          <label>Previous Role and Company</label>
+          <input id="pfPreviousRole" type="text" placeholder="e.g. Software Developer at Beta Ltd (2021 - 2023)" />
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Degree</label>
+            <input id="pfDegree" type="text" placeholder="e.g. BSc Computer Science" />
+          </div>
+          <div class="field">
+            <label>Graduation Year</label>
+            <input id="pfGradYear" type="text" placeholder="e.g. 2024" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>University</label>
+          <input id="pfUniversity" type="text" placeholder="e.g. University of Example" />
+        </div>
+
+        <div class="field">
+          <label>Key Projects</label>
+          <textarea id="pfProjects" placeholder="List your notable projects — name, what it does, and the tech used."></textarea>
+        </div>
+
+        <div class="field">
+          <label>Technical Skills</label>
+          <textarea id="pfSkills" placeholder="Programming languages, frameworks, tools, databases, cloud, testing…"></textarea>
+        </div>
+
+        <div class="field">
+          <label>Certifications</label>
+          <textarea id="pfCerts" placeholder="e.g. AWS Certified Cloud Practitioner (2024)"></textarea>
+        </div>
+
+        <!-- System prompt preview -->
+        <div class="preview-section">
+          <div class="preview-header">
+            <span class="preview-title">Profile sent to the AI</span>
+            <span id="previewBadge" class="preview-badge fallback">Fallback</span>
+          </div>
+          <div id="profilePreview">Loading preview…</div>
+        </div>
+
+        <p class="modal-note">
+          Your profile is encrypted with OS-level storage (Windows DPAPI / macOS Keychain)
+          and saved only on this machine. It is never uploaded anywhere except as part of
+          the interview prompt you send to your AI provider.
+        </p>
+
+        <div id="profileMsg"></div>
+
+        <div class="modal-actions">
+          <button class="btn-danger" id="btnClearProfile">Clear Profile</button>
+          <button class="btn btn-primary" id="btnSaveProfile">Save Profile</button>
+        </div>
       </div>
 
-      <div class="field">
-        <label>Base URL</label>
-        <input id="setBaseURL" type="text" placeholder="https://ai-gateway.amalitech.org/v1" />
-      </div>
+      <!-- ── API & Model tab ── -->
+      <div class="tab-panel" id="tabApi">
+        <div class="field">
+          <label>API Key</label>
+          <div class="key-row">
+            <input id="setApiKey" type="password" placeholder="Leave blank to keep existing key" autocomplete="off" />
+            <button id="btnToggleKey" type="button">Show</button>
+          </div>
+          <div id="keyHint" class="key-hint" style="display:none;">✓ Key already configured — type to replace it</div>
+        </div>
 
-      <div class="field">
-        <label>Model</label>
-        <select id="setModel">
-          <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-          <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
-          <option value="gpt-4o">gpt-4o</option>
-          <option value="gpt-5-mini">gpt-5-mini</option>
-        </select>
-      </div>
+        <div class="field">
+          <label>Base URL</label>
+          <input id="setBaseURL" type="text" placeholder="https://ai-gateway.amalitech.org/v1" />
+        </div>
 
-      <p class="modal-note">
-        <span class="warn">Never share your API key.</span>
-        The key is encrypted with OS-level storage (Windows DPAPI / macOS Keychain) and never leaves this machine.
-      </p>
+        <div class="field">
+          <label>Model</label>
+          <select id="setModel">
+            <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+            <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
+            <option value="gpt-4o">gpt-4o</option>
+            <option value="gpt-5-mini">gpt-5-mini</option>
+          </select>
+        </div>
 
-      <div id="saveMsg"></div>
+        <p class="modal-note">
+          <span class="warn">Never share your API key.</span>
+          The key is encrypted with OS-level storage (Windows DPAPI / macOS Keychain) and never leaves this machine.
+        </p>
 
-      <div class="modal-actions">
-        <button class="btn-ghost" id="btnCancelSettings">Cancel</button>
-        <button class="btn btn-primary" id="btnSaveSettings">Save &amp; Apply</button>
+        <div id="saveMsg"></div>
+
+        <div class="modal-actions">
+          <button class="btn-ghost" id="btnCancelSettings">Cancel</button>
+          <button class="btn btn-primary" id="btnSaveSettings">Save &amp; Apply</button>
+        </div>
       </div>
     </div>
   </div>
@@ -558,7 +757,7 @@
       typeBadge.style.display = 'none';
     });
 
-    const TYPE_LABELS = { coding: 'Coding', behavioural: 'Behavioural', ml: 'ML / AI', general: 'General' };
+    const TYPE_LABELS = { coding: 'Coding', behavioural: 'Behavioural', ml: 'ML / AI', qa: 'QA', general: 'General' };
     window.copilot.onQuestionType((type) => {
       typeBadge.textContent   = TYPE_LABELS[type] ?? type;
       typeBadge.className     = type;
@@ -629,6 +828,73 @@
       statusEl.className   = cls;
     }
 
+    // ── Settings tabs ──
+    const PROFILE_INPUTS = {
+      fullName:       'pfFullName',
+      currentRole:    'pfCurrentRole',
+      previousRole:   'pfPreviousRole',
+      degree:         'pfDegree',
+      graduationYear: 'pfGradYear',
+      university:     'pfUniversity',
+      projects:       'pfProjects',
+      skills:         'pfSkills',
+      certifications: 'pfCerts',
+    };
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.tab === name));
+      document.getElementById('tabProfile').classList.toggle('active', name === 'profile');
+      document.getElementById('tabApi').classList.toggle('active', name === 'api');
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn =>
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+    // Collect current form values into a profile object
+    function readProfileForm() {
+      const data = {};
+      for (const [key, id] of Object.entries(PROFILE_INPUTS)) {
+        data[key] = document.getElementById(id).value;
+      }
+      return data;
+    }
+
+    function profileFormHasContent() {
+      return Object.values(readProfileForm()).some(v => v && v.trim().length > 0);
+    }
+
+    // Refresh the system-prompt preview from the current (possibly unsaved) form
+    let hasCustomProfile = false;
+    async function refreshPreview() {
+      const draft = readProfileForm();
+      const res = await window.copilot.getProfilePreview(draft);
+      const previewEl = document.getElementById('profilePreview');
+      const badge = document.getElementById('previewBadge');
+      previewEl.textContent = res.text || '(empty)';
+
+      const draftHasContent = Object.values(draft).some(v => v && v.trim().length > 0);
+      if (draftHasContent) {
+        badge.textContent = 'Unsaved preview';
+        badge.className = 'preview-badge unsaved';
+      } else if (res.hasCustomProfile) {
+        badge.textContent = 'Saved profile';
+        badge.className = 'preview-badge custom';
+      } else {
+        badge.textContent = 'Fallback';
+        badge.className = 'preview-badge fallback';
+      }
+    }
+
+    // Live preview update as the user edits any field (debounced)
+    let previewTimer = null;
+    Object.values(PROFILE_INPUTS).forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(refreshPreview, 180);
+      });
+    });
+
     // ── Settings panel ──
     async function openSettings() {
       const cfg = await window.copilot.getConfig();
@@ -645,10 +911,79 @@
 
       document.getElementById('saveMsg').textContent = '';
       document.getElementById('saveMsg').className   = '';
+      document.getElementById('profileMsg').textContent = '';
+      document.getElementById('profileMsg').className   = '';
+
+      // Load the saved profile into the form
+      const { profile, status } = await window.copilot.getProfile();
+      hasCustomProfile = status.hasCustomProfile;
+      for (const [key, id] of Object.entries(PROFILE_INPUTS)) {
+        document.getElementById(id).value = profile[key] || '';
+      }
+
+      // Show the onboarding message only when no profile is configured yet
+      document.getElementById('onboardHint').classList.toggle('visible', !hasCustomProfile);
+
+      await refreshPreview();
+
+      // CV Profile is the first/default tab — new users land here to set up.
+      switchTab('profile');
+
       document.getElementById('settingsModal').classList.remove('hidden');
     }
 
     document.getElementById('btnSettings').addEventListener('click', openSettings);
+
+    // ── Save Profile ──
+    document.getElementById('btnSaveProfile').addEventListener('click', async () => {
+      const msgEl = document.getElementById('profileMsg');
+      if (!profileFormHasContent()) {
+        msgEl.textContent = '✗ Please fill in at least one field before saving.';
+        msgEl.className = 'err';
+        return;
+      }
+
+      const result = await window.copilot.saveProfile(readProfileForm());
+      if (result.ok) {
+        hasCustomProfile = true;
+        document.getElementById('onboardHint').classList.remove('visible');
+        msgEl.textContent = '✓ Profile saved successfully. Your interview answers will now use your profile.';
+        msgEl.className = 'ok';
+        await refreshPreview();
+      } else if (result.error === 'ENCRYPTION_UNAVAILABLE') {
+        msgEl.textContent = '✗ OS encryption is unavailable on this machine, so your profile was not saved (we never store personal data in plaintext).';
+        msgEl.className = 'err';
+      } else {
+        msgEl.textContent = '✗ Save failed: ' + (result.error || 'unknown error') + ' Your previous profile is unchanged.';
+        msgEl.className = 'err';
+      }
+    });
+
+    // ── Clear Profile ──
+    document.getElementById('btnClearProfile').addEventListener('click', async () => {
+      const msgEl = document.getElementById('profileMsg');
+
+      // Only confirm if there is actually a saved profile to clear
+      if (hasCustomProfile) {
+        const ok = window.confirm('Clear your saved CV profile? Interview Copilot will fall back to the default profile. This does not affect your API key or other settings.');
+        if (!ok) return;
+      }
+
+      const result = await window.copilot.clearProfile();
+      if (result.ok) {
+        hasCustomProfile = false;
+        for (const id of Object.values(PROFILE_INPUTS)) {
+          document.getElementById(id).value = '';
+        }
+        document.getElementById('onboardHint').classList.add('visible');
+        msgEl.textContent = '✓ Profile cleared. Interview Copilot is now using the default profile.';
+        msgEl.className = 'ok';
+        await refreshPreview();
+      } else {
+        msgEl.textContent = '✗ Clear failed: ' + (result.error || 'unknown error');
+        msgEl.className = 'err';
+      }
+    });
 
     // Interview Mode — hides this window immediately; use Ctrl+Shift+M to restore
     document.getElementById('btnInterview').addEventListener('click', async () => {
