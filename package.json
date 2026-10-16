@@ -6,6 +6,8 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
+    "setup": "node scripts/setup.js",
+    "postinstall": "node scripts/setup.js",
     "test": "node test/profile_service.test.js && node test/classifier.test.js",
     "build:win": "electron-builder --win"
   },
