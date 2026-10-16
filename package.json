@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "electron .",
-    "test": "node test/profile_service.test.js",
+    "test": "node test/profile_service.test.js && node test/classifier.test.js",
     "build:win": "electron-builder --win"
   },
  "build": {

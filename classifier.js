@@ -66,6 +66,34 @@ const PROMPT_INSTRUCTIONS = {
     '"Suggested response:" the candidate can adapt — never fabricate experience.',
   ],
 
+  qa: [
+    'CRITICAL: This is a live interview. The candidate reads and speaks the answer at the same time.',
+    'This is a Quality Assurance question. It may cover software testing, AI/ML output validation,',
+    'data annotation and labelling, model evaluation, test documentation, or working with cross-functional teams.',
+    'Rules:',
+    '- Readable in under 60 seconds. Short, punchy bullets, 5-6 maximum.',
+    '- Be concrete and practical: name the method, the steps, and what you would record or report.',
+    '',
+    'Match the answer to the question:',
+    '• Designing/executing test cases for AI outputs: state the requirement being validated, the input,',
+    '  the expected result, pass/fail criteria, and edge cases (ambiguous prompts, adversarial input,',
+    '  bias, hallucination, inconsistency across repeated runs).',
+    '• Data annotation/labelling: cover clear guidelines, consistency, inter-annotator agreement,',
+    '  handling ambiguous items, spot-check reviews, and how label quality affects model accuracy.',
+    '• Evaluating model predictions: cover sampling, error categorisation, patterns and root causes,',
+    '  and metrics such as precision, recall and accuracy where relevant.',
+    '• Test methodology: cover test strategy, regression, exploratory and boundary testing, and how',
+    '  testing for non-deterministic AI differs from testing deterministic software.',
+    '• Documentation/reporting: cover what you log (test case ID, input, expected vs actual, severity,',
+    '  evidence), keeping records organised, and giving actionable recommendations.',
+    '• Collaboration: cover raising questions early, clarifying requirements, and communicating findings',
+    '  clearly to engineers, product owners and other teams.',
+    '',
+    'Where the profile shows relevant testing, QA or data experience, reference it. If it does not,',
+    'answer from sound practice and clearly label any example as "Suggested response:" — never',
+    'present invented experience as the candidate\'s own.',
+  ],
+
   ml: [
     'For this ML/AI question:',
     '1. Give a clear, jargon-free explanation of the concept.',
@@ -86,6 +114,7 @@ const PROMPT_INSTRUCTIONS = {
     'If it is a coding problem: give approach, code (in a language from the profile), and complexity.',
     'If it is behavioural: use STAR format with real examples from the candidate\'s profile.',
     'If it is ML/AI: explain clearly with a real-world example.',
+    'If it is Quality Assurance (test cases, AI output validation, data annotation, model evaluation, test documentation): give a concrete, structured answer covering method, steps, and what you would record.',
     'Never invent experience that is not in the profile.',
   ],
 };
@@ -135,13 +164,35 @@ const BEHAVIOURAL_KEYWORDS = [
   'mistake', 'improve yourself', 'work under pressure', 'prioritize',
 ];
 
+// Quality Assurance: classic software QA plus AI/ML output validation, data
+// annotation and model evaluation. Phrases are kept specific so that generic
+// ML words (e.g. "model", "regression") alone do not pull questions into QA.
+const QA_KEYWORDS = [
+  'quality assurance', 'qa engineer', 'qa tester', 'qa team', 'qa process', 'quality engineer',
+  'test case', 'test cases', 'test scenario', 'test plan', 'test strategy', 'test suite',
+  'test data', 'test coverage', 'test automation', 'automated test', 'automation test',
+  'testing', 'tester', 'regression testing', 'smoke test', 'sanity test', 'unit test',
+  'integration test', 'end-to-end test', 'e2e', 'acceptance test', 'uat', 'exploratory test',
+  'manual test', 'boundary value', 'equivalence partition', 'black box', 'white box',
+  'bug report', 'defect', 'severity', 'bug life cycle', 'stlc', 'traceability',
+  'selenium', 'cypress', 'playwright', 'postman', 'jmeter', 'flaky',
+  'validate ai', 'validate the output', 'ai output', 'model output', 'model prediction',
+  'evaluate model', 'evaluating model', 'evaluate the model', 'hallucination',
+  'annotate', 'annotation', 'annotator', 'labelling', 'labeling', 'label data',
+  'data set', 'dataset', 'data quality', 'ground truth', 'inter-annotator',
+  'evaluation criteria', 'edge case', 'inconsisten', 'against requirements',
+  'defined requirements', 'testing methodolog', 'test result', 'documentation',
+];
+
 function classify(text) {
   const lower = text.toLowerCase();
 
   const score = (keywords) =>
     keywords.reduce((n, kw) => n + (lower.includes(kw) ? 1 : 0), 0);
 
+  // qa is listed first so that exact ties go to QA (its phrases are specific).
   const scores = {
+    qa:          score(QA_KEYWORDS),
     coding:      score(CODING_KEYWORDS),
     ml:          score(ML_KEYWORDS),
     behavioural: score(BEHAVIOURAL_KEYWORDS),

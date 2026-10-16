@@ -2,6 +2,10 @@
 config.js
 candidate_profile.js
 settings.json
+user_profile.json
+.env
+.env.*
+*.env
 
 # ── Dependencies ──────────────────────────────────────────────────────────────
 node_modules/

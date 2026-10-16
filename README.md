@@ -1,54 +1,86 @@
 # Interview Copilot
 
-A desktop app built with Electron that gives you real-time AI-powered answers during technical interviews. Type a question or capture your screen, and Claude streams a structured answer into a floating overlay that is invisible to screen-sharing tools like Zoom, Google Meet, and Microsoft Teams.
+A Windows desktop app that gives you real-time, AI-generated answers while you practise interviews. Type a question or capture your screen, and the answer streams into a floating overlay, tailored to your own CV.
 
 ---
 
 ## Features
 
-- **Screen capture** — captures the interview screen and sends it to Claude for analysis
-- **Streaming answers** — responses stream word-by-word with markdown and IDE-style syntax highlighting for code
-- **Invisible overlay** — a transparent, always-on-top panel that screen-sharing software cannot see
-- **Question classifier** — automatically detects coding, behavioural, ML/AI, or general questions and adjusts the prompt
-- **Candidate profile** — answers are personalised to the candidate's actual CV, projects, and experience
-- **Interview Mode** — hides the control panel from proctoring tools with one click
-- **Settings panel** — update API key, base URL, and model at runtime; key is encrypted with OS-level storage
-- **Font size controls** — resize overlay text on the fly
-- **Smart scroll** — auto-scrolls during streaming but stays put if you scroll up to re-read
+- **AI-powered answers**: responses stream word by word with markdown rendering and syntax-highlighted code.
+- **Invisible overlay**: a transparent, always-on-top panel that uses Windows content protection so it is hidden from screen-sharing and recording tools.
+- **Manual input and screen capture**: type a question into the main panel, or capture your screen and let the AI read the question from it. (Microphone input is not supported in v1.0.0.)
+- **Question classifier**: detects coding, behavioural, ML/AI, Quality Assurance and general questions and switches to a matching answer style. QA covers test case design, AI output validation, data annotation, model evaluation, test documentation and cross-team communication.
+- **CV personalisation**: enter your name, roles, education, projects, skills and certifications in **Settings > CV Profile**. Answers are written as you, using only what you provide. The profile is encrypted with Windows DPAPI and stored only on your machine.
+- **Interview Mode**: hide the control panel with one click or hotkey.
+- **Settings panel**: change the API key, base URL and model at runtime. The key is encrypted with OS-level storage.
 
 ---
 
-## Hotkeys
+## Requirements
+
+- **Windows 10 or later (64-bit)**
+- **An API key** for an OpenAI-compatible chat completions endpoint (for example an AI gateway serving Claude or GPT models), plus its base URL
+- An internet connection
+
+---
+
+## How to install
+
+1. Go to the [Releases page](https://github.com/peprah12git/interview-copilot/releases/latest).
+2. Under **Assets**, download `Interview Copilot Setup 1.0.0.exe`.
+3. Run the installer and follow the prompts. You can choose the install folder.
+4. Windows SmartScreen may warn that the app is from an unknown publisher, because the installer is not code-signed. Choose **More info > Run anyway** if you trust the source.
+5. Launch **Interview Copilot** from the Start menu or desktop shortcut.
+
+On first launch:
+
+1. Click **Settings**.
+2. On the **API & Model** tab, enter your API key, base URL and model, then click **Save & Apply**.
+3. On the **CV Profile** tab, fill in your details and click **Save Profile**.
+
+---
+
+## How to use
+
+1. Launch the app. The main control panel opens.
+2. Press `Ctrl+Shift+H` to show the overlay and position it where you want.
+3. Click **Interview Mode** or press `Ctrl+Shift+M` to hide the control panel.
+4. Type a question into the main panel and press `Enter`, or press `Ctrl+Shift+S` to capture the screen and get an answer.
+5. The answer streams into the overlay. Scroll with the mouse wheel or arrow keys.
+
+### Keyboard shortcuts
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+Shift+H` | Show / hide overlay |
-| `Ctrl+Shift+S` | Capture screen and ask Claude |
-| `Ctrl+Shift+M` | Hide / restore main window (interview mode) |
+| `Ctrl+Shift+H` | Show / hide the overlay |
+| `Ctrl+Shift+S` | Capture the screen and get an answer |
+| `Ctrl+Shift+M` | Hide / restore the main window |
 
 ---
 
-## Prerequisites
+## Disclaimer
 
-- [Node.js](https://nodejs.org/) v18 or later
-- An API key for a Claude-compatible gateway (OpenAI-format `/v1/chat/completions`)
+Interview Copilot is intended for **practice and conversational interviews only**. Do not use it in any interview, assessment or exam where external assistance is prohibited. You are responsible for following the rules of any employer, platform or institution you interact with. The authors accept no liability for misuse. AI answers can be wrong, so always check them.
 
 ---
 
-## Setup
+## Privacy and security
+
+- Your API key and CV profile are encrypted with Electron `safeStorage` (Windows DPAPI) and stored in your user data folder, `%APPDATA%\interview-copilot`.
+- If OS encryption is unavailable, the CV profile is not saved, rather than being stored as plain text.
+- Your profile and questions are sent only to the AI endpoint you configure.
+
+---
+
+## Development
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/peprah12git/Interview-Copilot.git
-cd Interview-Copilot
-
-# 2. Install dependencies
+git clone https://github.com/peprah12git/interview-copilot.git
+cd interview-copilot
 npm install
-
-# 3. Create your config file (never commit this)
 ```
 
-Create `config.js` in the project root:
+Create `config.js` in the project root. It is gitignored, so never commit it:
 
 ```js
 module.exports = {
@@ -57,54 +89,21 @@ module.exports = {
 };
 ```
 
-You can also set these values inside the app via **⚙ Settings** after launch — the key will be encrypted and saved locally.
+Create `candidate_profile.js` exporting a default profile string. It is also gitignored. It is used only until you save a CV Profile in Settings.
+
+```js
+module.exports = `
+CANDIDATE PROFILE:
+Name: Your Name
+`;
+```
 
 ```bash
-# 4. Run the app
-npm start
+npm start          # run the app
+npm test           # run the profile service tests
+npm run build:win  # build the Windows installer into dist/
 ```
-
----
-
-## Usage
-
-1. Launch the app — the main control panel opens
-2. Press `Ctrl+Shift+H` to show the overlay (position it where you want on screen)
-3. Click **Interview Mode** or press `Ctrl+Shift+M` to hide the control panel during the interview
-4. When a question appears on your screen, click **📷 Capture Screen** on the overlay (or press `Ctrl+Shift+S`)
-5. Claude's answer streams into the overlay — scroll with the mouse wheel or arrow keys
-
-For text questions, type directly into the main panel and press `Enter`.
-
----
-
-## File structure
-
-```
-interview-copilot/
-├── index.js            # Electron main process
-├── preload.js          # Secure IPC bridge
-├── ai_client.js        # OpenAI client (default config)
-├── classifier.js       # Question type detection + system prompts
-├── index.html          # Main window UI
-├── overlay.html        # Transparent overlay UI
-├── config.js           # ⚠ YOUR CREDENTIALS — never commit (gitignored)
-└── candidate_profile.js # ⚠ YOUR CV DATA — never commit (gitignored)
-```
-
----
-
-## Security notes
-
-- `config.js` and `candidate_profile.js` are in `.gitignore` — never add them to version control
-- API keys saved via the Settings panel are encrypted using Windows DPAPI / macOS Keychain (`safeStorage`)
-- The overlay uses `setContentProtection(true)` which prevents it from appearing in screen recordings
-
----
 
 ## Tech stack
 
-- [Electron](https://www.electronjs.org/) — desktop shell
-- [OpenAI SDK](https://github.com/openai/openai-node) — streaming API client
-- [marked.js](https://marked.js.org/) — markdown rendering
-- [highlight.js](https://highlightjs.org/) — syntax highlighting
+[Electron](https://www.electronjs.org/), the [OpenAI SDK](https://github.com/openai/openai-node), [marked](https://marked.js.org/) and [highlight.js](https://highlightjs.org/).
