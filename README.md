@@ -74,7 +74,19 @@ Interview Copilot is intended for **practice and conversational interviews only*
 
 ## Set up from source (cloning on a new machine)
 
-Use this if you cloned the repository instead of using the installer. Two files the app needs, `config.js` and `candidate_profile.js`, are **not in the repository** because they hold secrets and personal data. You must create them, or the app will not start.
+Use this to pull the project onto another machine and keep working on it. Two files the app needs, `config.js` and `candidate_profile.js`, are **not in the repository** because they hold secrets and personal data. `npm install` creates them for you from `config.example.js` and `candidate_profile.example.js`. It never overwrites a file that already exists.
+
+Quick version:
+
+```powershell
+git clone https://github.com/peprah12git/Interview-Copilot.git
+cd Interview-Copilot
+npm install
+# edit config.js with your baseURL and apiKey
+npm start
+```
+
+Details below.
 
 ### 1. Prerequisites
 
@@ -92,15 +104,13 @@ cd Interview-Copilot
 npm install
 ```
 
-If the feature branch has not been merged into `main` yet, switch to it before installing:
+`npm install` also runs `npm run setup`, which creates `config.js` and `candidate_profile.js` if they are missing. You can run it again at any time with `npm run setup`.
 
-```powershell
-git checkout feature/cv-profile
-```
+To pick up later changes on that machine, run `git pull` and then `npm install`.
 
-### 3. Create `config.js`
+### 3. Edit `config.js`
 
-In the project root, create `config.js` with your AI gateway details. It is gitignored, so it will never be committed.
+Open the generated `config.js` in the project root and put in your AI gateway details. It is gitignored, so it will never be committed.
 
 ```js
 module.exports = {
@@ -111,9 +121,9 @@ module.exports = {
 
 The gateway must accept OpenAI-style `/v1/chat/completions` requests. You can also leave `apiKey` empty (`apiKey: ''`) and enter the key later in **Settings > API & Model**, where it is stored encrypted.
 
-### 4. Create `candidate_profile.js`
+### 4. Edit `candidate_profile.js` (optional)
 
-This is the default profile used until you save your own CV in **Settings > CV Profile**. A minimal version is enough:
+This is the default profile used until you save your own CV in **Settings > CV Profile**. The generated placeholder is enough to start. A minimal version looks like this:
 
 ```js
 module.exports = `
@@ -142,8 +152,7 @@ Both test files should report no failures. They do not need an API key or networ
 
 | Problem | Fix |
 |---|---|
-| `Cannot find module './config'` | You have not created `config.js` (step 3). |
-| `Cannot find module './candidate_profile'` | You have not created `candidate_profile.js` (step 4). |
+| `Cannot find module './config'` or `'./candidate_profile'` | Run `npm run setup` to create the missing file, then edit it. |
 | Banner says no API key is configured | Add the key in **Settings > API & Model**. |
 | Answers fail with an authentication error | The key or base URL is wrong. Re-enter them in Settings. |
 | "Encryption unavailable" when saving a profile | Windows could not provide secure storage for your user account. Sign in as a normal Windows user and try again. |
@@ -163,6 +172,7 @@ The installer is written to `dist\`. **Warning:** the build packages your local 
 
 ```powershell
 npm start          # run the app
+npm run setup      # create config.js and candidate_profile.js if missing
 npm test           # run the profile service and classifier tests
 npm run build:win  # build the Windows installer into dist/
 ```
